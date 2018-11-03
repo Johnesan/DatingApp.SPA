@@ -1,11 +1,12 @@
 import { Injectable } from '@angular/core';
 import { environment } from '../../environments/environment';
-import { Http, Headers, RequestOptions } from '../../../node_modules/@angular/http';
+import { Http, Headers, RequestOptions, Response } from '../../../node_modules/@angular/http';
 import { Observable } from '../../../node_modules/rxjs/Observable';
 import { User } from '../_models/User';
 import 'rxjs/add/operator/map';
 import 'rxjs/add/operator/catch';
 import 'rxjs/add/observable/throw';
+import { PaginatedResult } from '../_models/pagination';
 
 @Injectable()
 export class UserService {
@@ -13,9 +14,32 @@ export class UserService {
 
     constructor(private http: Http) { }
 
-    getUsers(): Observable<User[]> {
-        return this.http.get(this.baseUrl + 'users', this.jwt())
-        .map(response => <User[]>response.json())
+    getUsers(page?: number, itemsPerPage?: number, userParams?: any) {
+        const paginatedResult: PaginatedResult<User[]> = new PaginatedResult<User[]>();
+        let queryString = '?';
+        
+        if (page != null && itemsPerPage != null) {
+            queryString += 'pageNumber=' + page + '&pageSize=' + itemsPerPage + '&';
+        }
+
+        if (userParams != null) {
+            queryString +=
+            'minAge=' + userParams.minAge +
+            '&maxAge=' + userParams.maxAge +
+            '&gender=' + userParams.gender +
+            '&orderBy=' + userParams.orderBy;
+        }
+
+        return this.http.get(this.baseUrl + 'users' + queryString, this.jwt())
+        .map((response: Response) => {
+            paginatedResult.result = response.json();
+
+            if (response.headers.get('Pagination') != null) {
+                paginatedResult.pagination = JSON.parse(response.headers.get('Pagination'));
+            }            
+
+            return paginatedResult;
+        })
         .catch(this.handleError);
     }
 
